@@ -109,10 +109,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
 
     if (!url) {
       console.log(`
-Usage (URL fetches via Playwright): ./lib/distiller/distill-page.ts [--markdown] <URL>
-Usage (Base64 stdin bypasses Playwright): ./lib/distiller/distill-page.ts --base64-stdin [--markdown] < base64.txt
+Usage (URL fetches via Playwright): node agents/skills/distill-page/scripts/distill-page.ts [--markdown] <URL>
+Usage (Base64 stdin bypasses Playwright): node agents/skills/distill-page/scripts/distill-page.ts --base64-stdin [--markdown] < base64.txt
 
-Example: ./lib/distiller/distill-page.ts --markdown https://www.debugbear.com/blog/content-visibility-api
+Example: node agents/skills/distill-page/scripts/distill-page.ts --markdown https://www.debugbear.com/blog/content-visibility-api
       `);
       process.exit(1);
     }

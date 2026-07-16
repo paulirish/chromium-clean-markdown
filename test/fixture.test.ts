@@ -3,8 +3,8 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { convertToMarkdown } from '../distill-page.ts';
-import * as pb from '../proto/common_quality_data_pbjs.js';
+import { convertToMarkdown } from '../scripts/distill-page.ts';
+import * as pb from '../scripts/proto/common_quality_data_pbjs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

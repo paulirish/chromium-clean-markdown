@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import {processPage, convertToMarkdown} from '../distill-page.ts';
+import {processPage, convertToMarkdown} from '../scripts/distill-page.ts';
 
 test.skip('Evaluate CDP markdown against real-world URLs', async () => {
   const urls = [

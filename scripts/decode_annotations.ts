@@ -1,5 +1,8 @@
 import * as pb from './proto/common_quality_data_pbjs.js';
-import { normalizeWhitespace } from '../utils.ts';
+
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
 
 const {ContentAttributeType, TextSize, TableRowType, AnnotatedRole} = pb.optimization_guide.proto;
 const {
@@ -73,8 +76,12 @@ function recursiveToMarkdown(node: AnyNode, state: {imageIndex: number, insideHe
     }
   } else if (attrs.attributeType === CONTENT_ATTRIBUTE_IMAGE && attrs.imageData) {
     const caption = attrs.imageData.imageCaption || 'image';
-    const ref = `image${String(state.imageIndex++).padStart(2, '0')}`;
-    md += `\n![${caption}][${ref}]\n`;
+    if (attrs.imageData.url) {
+      md += `\n![${caption}](${attrs.imageData.url})\n`;
+    } else {
+      const ref = `image${String(state.imageIndex++).padStart(2, '0')}`;
+      md += `\n![${caption}][${ref}]\n`;
+    }
   } else if (attrs.attributeType === CONTENT_ATTRIBUTE_ANCHOR && attrs.anchorData) {
     const url = attrs.anchorData.url || '';
     let resolvedUrl = url;
@@ -184,6 +191,7 @@ function recursiveToMarkdown(node: AnyNode, state: {imageIndex: number, insideHe
       return `\n\n${prefix}${headingText}\n\n`;
     }
     return '';
+
   }
 
   if (
