@@ -36,6 +36,12 @@ export async function injectSemanticMarkers(page: any) {
       p.textContent = '> ';
       el.prepend(p);
     });
+    // Flush the pending lifecycle update from our DOM mutations so
+    // AIPageContentAgent::GetAIPageContent runs synchronously (where
+    // ScopedForceActivatableDisplayLocks can unlock <details> / hidden=until-found)
+    // instead of deferring into DidFinishPostLifecycleSteps where style/layout
+    // invalidation is disallowed.
+    return new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   }, {
     preOpenMarker: PRE_OPEN_MARKER,
     preCloseMarker: PRE_CLOSE_MARKER,
@@ -47,16 +53,7 @@ export async function injectSemanticMarkers(page: any) {
 export async function fetchDistilledBase64(url: string) {
   let browser;
   try {
-    browser = await chromium.launch({
-      headless: false,
-      args: [
-        '--headless=new',
-        '--enable-features=OptimizationHints,PageContentAnnotation,OptimizationGuideModelDownloading',
-        '--enable-dom-distiller',
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-      ],
-    });
+    browser = await chromium.launch({channel: 'chromium'});
     const context = await browser.newContext();
     const page = await context.newPage();
 
@@ -73,10 +70,6 @@ export async function fetchDistilledBase64(url: string) {
 
     // Bridge the visual gap: Inject text markers to preserve semantic HTML bounds
     await injectSemanticMarkers(page);
-
-    // Bring to front and wait for potential model processing
-    await page.bringToFront();
-    await page.waitForTimeout(2000);
 
     // Page.getAnnotatedPageContent returns distilled/annotated HTML content
     const {content} = await client.send('Page.getAnnotatedPageContent');

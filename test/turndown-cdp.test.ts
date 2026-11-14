@@ -52,16 +52,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 test('Run Turndown cases against CDP getAnnotatedPageContent', async (t) => {
-  const browser = await chromium.launch({
-    headless: false,
-    args: [
-      '--headless=new',
-      '--enable-features=OptimizationHints,PageContentAnnotation,OptimizationGuideModelDownloading',
-      '--enable-dom-distiller',
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-    ],
-  });
+  const browser = await chromium.launch({channel: 'chromium'});
 
   const context = await browser.newContext();
   const turndownGfm = new TurndownService({
@@ -103,7 +94,6 @@ test('Run Turndown cases against CDP getAnnotatedPageContent', async (t) => {
       // Navigate to a data URL with the input HTML
       const dataUrl = 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!DOCTYPE html><html><body>${tc.inputHtml}</body></html>`);
       await page.goto(dataUrl, {waitUntil: 'load'});
-      await page.bringToFront();
 
       await injectSemanticMarkers(page);
 

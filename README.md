@@ -84,7 +84,7 @@ const proto = decodeAnnotatedPageContent(content);
 const markdown = convertToMarkdown(proto);
 ```
 
-**Headless note:** When launching Chromium yourself, use Chrome's new headless mode (`headless: false` in Playwright with `--headless=new` in `args`, plus `--enable-features=OptimizationHints,PageContentAnnotation,OptimizationGuideModelDownloading --enable-dom-distiller`). Legacy headless mode fails with a CDP `Protocol error` on `Page.getAnnotatedPageContent`, and `about:blank` / empty pages will also reject.
+**Playwright note:** When launching Chromium yourself, pass `chromium.launch({channel: 'chromium'})` so Playwright uses full Chrome for Testing (`--headless=new`) rather than `chrome-headless-shell`. Also note that `Page.getAnnotatedPageContent` rejects on `about:blank` or empty pages.
 
 ## Tradeoffs: Visual Extraction vs. HTML Syntax Parsers
 
