@@ -1,86 +1,114 @@
-# Page Distiller Skill (`distill-page`)
+# page-distiller
 
-This folder contains the `distill-page` agent skill, designed to extract clean, distilled webpage Markdown using the Chrome DevTools Protocol (CDP). It leverages Chromium's experimental Page Content Annotations machine-learning model to parse and annotate page structures natively.
-
-## 🚀 Usage
-
-You can execute the page distiller directly using Node.js:
+Turn any webpage into clean Markdown (`URL -> Markdown`): **just the actual content**, without headers, footers, nav bars, sidebars, ad slots, or layout wrapper soup.
 
 ```bash
-# Fetch and distill a page to Markdown (default behavior)
-node agents/skills/distill-page/scripts/distill-page.ts <URL>
-
-# Output the raw decoded JSON representation
-node agents/skills/distill-page/scripts/distill-page.ts --json <URL>
-
-# Decode a base64 payload from stdin (bypasses Playwright browser launch)
-node agents/skills/distill-page/scripts/distill-page.ts --base64-stdin < base64.txt
+npx page-distiller https://web.dev/articles/lcp
 ```
 
+## Why? (And what is `AnnotatedPageContent`?)
 
-## 🌟 Features & Benefits
+If you pipe a webpage's DOM into an HTML-to-Markdown converter like [Turndown](https://github.com/mixmark-io/turndown), you get the *entire* DOM: mega-menus, header links, footer sitemaps, cookie banners, sidebar widgets, and "related posts" cards. Half your output (and context window) goes to page chrome instead of the article.
 
-Unlike tools like convert page DOM/HTML to markdown, `distill-page` uses Chromium's native visual Machine Learning model to isolate and format only the main content.
+Deep inside Chromium is a feature almost no web developers know about (and tbh most Chromium engineers don't realize you can grab over CDP and decode in JS): **Annotated Page Content** (`APC`).
 
-### Key Benefits:
-1. **Extreme Noise Reduction**: Bypasses header menus, navigation links, sidebar widgets, ad overlays, search boxes, and footer links automatically.
-2. **High Token Efficiency**: Reduces output size by **50% to 70%** on standard articles/blogs compared to converting full HTML:
-   * **web.dev article**: 21KB (`turndown`) &rarr; **11KB** (`distill-page`) — **47% savings**
-   * **paulirish.com homepage**: 7.4KB (`turndown`) &rarr; **2.4KB** (`distill-page`) — **67% savings**
-   * This saves valuable context window tokens and reduces processing costs when feeding pages to downstream LLMs.
-3. **Semantic Fidelity Features**:
-   * **Page Titles**: Extracts and prepends the page title as a standalone plain text line at the very top.
-   * **Table Captions**: Identifies table captions (`TableData.table_name`) and renders them cleanly as bold headers.
-   * **Ad Stripping**: Instantly ignores nodes flagged as ads by the browser model (`is_ad_related`).
-   * **Accordions**: Detects collapsed elements and wraps them in HTML `<details>` disclosure blocks.
-   * **Asides**: Detects sidebars and callouts and wraps them in HTML `<aside>` tags (preventing heading hierarchy breakage).
-   * **Heading Levels**: Dynamic mapping of text size hierarchies to appropriate Markdown headers (`XL` &rarr; `# H1`, `L` &rarr; `## H2`, `M` &rarr; `### H3`, etc.).
+Chrome built [`AIPageContentAgent`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc) inside Blink to power "Gemini in Chrome" and Optimization Guide features, and exposed it over the Chrome DevTools Protocol as [`Page.getAnnotatedPageContent`](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-getAnnotatedPageContent).
 
-## 🛠️ Implementation Details
+When you call `Page.getAnnotatedPageContent`, Chrome returns a base64-encoded binary protobuf matching [`AnnotatedPageContent`](https://source.chromium.org/chromium/chromium/src/+/main:components/optimization_guide/proto/features/common_quality_data.proto) (`common_quality_data.proto`). `page-distiller` compiles that `.proto` definition to JS with `@bufbuild/protobuf`, decodes the binary tree in Node, isolates the main content, and serializes it into clean Markdown.
 
-### Two-Pass Compiler Architecture
-The parser uses a clean two-pass compiler design to decouple tree parsing from markdown serialization formatting:
-1. **Phase 1 (Parse to AST)**: Recursively traverses the Chromium layout annotation protobufs (`AnnotatedPageContent`) and builds a strongly-typed intermediate document AST (`ASTDocument` containing `ASTBlockNode` and `ASTInlineNode` structures).
-2. **Phase 2 (Serialize to Markdown)**: Traverses the AST and formats it into Markdown. This keeps formatting logic (spacing normalization, tag generation, emphasis grouping) separate from structural parsing.
+In short: you get the page's real content at **50% to 70% smaller byte/token size** than converting raw HTML:
 
-### Core Mechanism
-The script uses **Playwright** to launch Chromium and establish a direct **CDP Session** to a page. It then calls the experimental `Page.getAnnotatedPageContent` method to extract the ML-annotated layout tree.
+| Page | Raw HTML -> `turndown` | `page-distiller` | Reduction |
+| :--- | ---: | ---: | ---: |
+| `web.dev/articles/lcp` | 21.0 KB | **11.0 KB** | **47% smaller** |
+| `paulirish.com` | 7.4 KB | **2.4 KB** | **67% smaller** |
 
-### Headless execution
-By default, the script launches Chromium in the **new headless mode** (`--headless=new` passed to Chromium `args` while keeping Playwright's `headless: false`). 
-* Note: The old headless mode (Playwright's default `headless: true` or the `--headless` flag) consistently fails and returns a `Protocol error` for `Page.getAnnotatedPageContent`.
+## How Chrome generates `AnnotatedPageContent`
 
-### Protocol & Compilation
-The CDP method returns a base64 string containing a serialized `AnnotatedPageContent` message defined in Chromium's Optimization Guide.
-* We compile these definitions into ESM JavaScript and TypeScript using `protobufjs-cli`.
-* To update or regenerate these files from the upstream Chromium source tree, refer to the [Maintenance Guide](updating.md).
+Unlike Readability or DOM-to-Markdown scripts that parse raw HTML strings and guess from tag names, [`AIPageContentAgent`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc) runs **inside Blink after style and layout** (`UpdateLifecycleToLayoutClean`). It walks the live **`LayoutObject` tree** across the main document and any embedded iframes (including cross-process OOPIFs, stitched together in the browser process by [`page_content_proto_provider.cc`](https://source.chromium.org/chromium/chromium/src/+/main:components/optimization_guide/content/browser/page_content_proto_provider.cc)).
 
-## ⚠️ Known Constraints
+A lot of magic happens during that C++ layout walk:
 
-* **Empty Pages**: The CDP method will fail with a protocol error on `about:blank` or pages with negligible content.
-* **Experimental Status**: This is an experimental CDP feature; its behavior may change or be removed in future Chromium versions.
-* **Blockquotes**: The Chromium layout annotator model does not recognize blockquotes and maps `<blockquote>` elements to `AX_ROLE_UNKNOWN` (181). Because of this, Page Distiller does not support blockquote structural nesting or styling (we choose not to handle it because raw DOM injection fixes are fragile and break on nested line boundaries).
+- Unstyled `<div>` and `<span>` **wrapper soup disappears automatically**. If a layout box has no semantic role, interaction state, or sticky/fixed/scrollable behavior, `ShouldSkipSingleNode()` skips the wrapper and hoists its visible children straight up into a sparse tree.
+- Visibility is **computed from layout**, not guessed. Nodes with `display: none`, `visibility: hidden`, or empty `0x0` geometry are dropped. Even better: Blink temporarily forces `content-visibility: hidden` and `hidden="until-found"` display locks open (`ScopedForceActivatableDisplayLocks`) so collapsed accordion content gets laid out and extracted, tagging those subtrees with `ANNOTATED_ROLE_CONTENT_HIDDEN`.
+- Typography comes **straight from `ComputedStyle`**. Instead of trusting `<h*>` or `<b>` tags, Blink compares each `LayoutText` leaf's `ComputedFontSize()` against the root document font size to bucket text into `XL` (`>= 2em`), `L` (`>= 1.17em`), `M`, `S`, and `XS` (`GetTextSize`). It also checks computed `font-weight`, `font-style`, applied `text-decoration`, and `vertical-align: sub/super` to set `has_emphasis`.
+- Landmarks, ads, and paywalls are **tagged natively**. Blink combines HTML tags (`<main>`, `<article>`, `<nav>`, `<header>`, `<footer>`, `<aside>`, `<search>`) and explicit ARIA roles into `AnnotatedRole`s, queries Chrome's Subresource Filter (`element->IsAdRelated()`) to flag ad nodes with `is_ad_related: true`, and checks schema.org `isAccessibleForFree=false` metadata to tag `ANNOTATED_ROLE_PAID_CONTENT`.
 
-## 🆚 Turndown vs CDP ML Extraction (Tradeoffs)
+## How `page-distiller` turns it into Markdown
 
-We have evaluated this CDP `AnnotatedPageContent` method against standard HTML-to-Markdown parsers like [Turndown](https://github.com/mixmark-io/turndown). 
+Turning Chrome's `AnnotatedPageContent` proto into good Markdown takes a 3-step pipeline ([`scripts/distill-page.ts`](./scripts/distill-page.ts) and [`scripts/decode_annotations.ts`](./scripts/decode_annotations.ts)):
 
-**The CDP method fails many standard syntax parser tests by design.**
+### 1. Bridging the `<pre>` / `<code>` gap (`injectSemanticMarkers`)
 
-To prevent regression on features that *do* work successfully, the integration test suite includes a compatibility test runner based on a whitelist of passing tests.
+Because `AnnotatedPageContent` was designed for visual/layout extraction, Blink's `TextStyle` doesn't record monospace fonts or `<code>`/`<pre>` tags. Left alone, inline code and code blocks flatten into ordinary `TEXT` nodes.
 
-*   **Default Mode (Regression Prevention)**: Runs as part of `pnpm run preflight`. It only asserts on the **37 passing test cases** that we expect to remain correct. Other tests are skipped silently.
-*   **Full Compatibility Mode (Development/Gap Analysis)**: Run via `pnpm run test:compatibility` (or setting `RUN_ALL_TURNDOWN_TESTS=1`). This runs all 139 tests and prints detailed reports of the remaining failures.
+Before calling `Page.getAnnotatedPageContent`, we run a tiny `page.evaluate()` pass that wraps `<code>` and outermost `<pre>` elements in Unicode Private Use Area delimiters (`\uE000distill-page-...\uE001`). Blink includes those characters verbatim inside its `LayoutText` runs, so our parser can reconstruct fenced code blocks and backtick spans (even with nested backticks or bold runs crossing inline code).
 
-### The Core Difference
-* **Turndown is a Semantic Syntax Parser**: It maps raw HTML tags directly to Markdown syntax (`<em>` directly becomes `_`, `<code>` becomes backticks), relying entirely on the author's original HTML structure.
-* **CDP is a Visual ML Extraction**: It strips away all HTML tags completely and abstracts the layout tree into generic elements (`CONTAINER`, `TEXT`, `IMAGE`). It relies entirely on how the page visually presents data.
+### 2. Isolating the content root & pruning noise (`parseProtoToAST`)
 
-### When the CDP approach is WORSE than Turndown:
-Because the ML model discards precise tag identities, the CDP approach struggles when maintaining perfect structural syntax parity is required:
-1. **Inline Code blocks (`<code>`)**: You lose literal backtick boundaries. The ML model evaluates textual sizing and styling. If a `<code>` block doesn’t explicitly look small or uniquely styled in the rendered layout, the CDP may emit it simply as generic `TEXT`, losing the code formatting.
-2. **Specific Emphasis differentiation (`<i>` vs `<em>` vs `<b>` vs `<strong>`)**: Turndown retains whether the author specifically wanted bold or italics. The ML model collapses all these signals into a single generic boolean: `hasEmphasis: true`. 
-3. **Paragraph spacing vs Layout breaks (`<p>` vs `<div>`)**: Turndown checks whether structural spaces match paragraph semantics. The ML model throws out tags entirely and returns `CONTENT_ATTRIBUTE_CONTAINER` nodes based on rendered boxes, making it very difficult to differentiate a semantic paragraph from a random padded div purely from the extracted data.
+We decode the base64 protobuf payload and compile the `ContentNode` tree into a typed intermediate AST (`ASTDocument`):
 
-### Why we use CDP:
-While it fails rigorous syntax parity, the CDP method perfectly replicates a **distraction-free reading environment**. For feeding web performance intelligence to autonomous AI agents, filtering out 90% of structural DOM noise (sidebars, footers, ad overlays, floating popups) using visual annotations is significantly more valuable than getting inline `<code>` tags translated perfectly from bad HTML.
+- Picks the **largest `MAIN` landmark** if it holds at least 50% of the page's text (`findContentRoot`), so small promo/shell `<main>` blocks or inline `<article>` cards don't hijack or truncate extraction (falling back to a dominant `ARTICLE` or the page root).
+- Prunes any subtree tagged with **`ANNOTATED_ROLE_NAV`, `ANNOTATED_ROLE_FOOTER`, or `isAdRelated: true`**.
+- Strips noisy **heading permalink anchors** (`#`, `¶`, `🔗`, `permalink`) and suppresses `has_emphasis` bolding inside `[text](url)` links (since Blink flags nearly all colored/underlined link text as emphasized).
+- Maps `ASIDE` subtrees to `<aside>`, `CONTENT_HIDDEN` subtrees to `<details><summary>Collapsed Content</summary>`, `PAID_CONTENT` to `[!IMPORTANT]` alerts, `TableData.table_name` to table headers, and failed iframes (`<host> refused to connect.`) into `[Link to <host> embed](url)` links.
+
+### 3. Serializing to Markdown (`convertToMarkdown`)
+
+A separate pass walks the `ASTDocument`, merges contiguous bold and inline-code segments, sizes headings (`XL` -> `#`, `L` -> `##`, `M` -> `###`, `S`/`XS` -> `####`), and formats GFM tables and lists.
+
+## CLI
+
+```bash
+# Fetch a URL with Playwright and output distilled Markdown
+npx page-distiller https://www.debugbear.com/blog/content-visibility-api
+
+# Dump the raw decoded AnnotatedPageContent protobuf as JSON
+npx page-distiller --json https://www.debugbear.com/blog/content-visibility-api
+
+# Decode a base64 payload from stdin (skips launching Playwright)
+npx page-distiller --base64-stdin < payload.b64
+```
+
+## JS / TS API
+
+```ts
+import {
+  processPage,
+  convertToMarkdown,
+  injectSemanticMarkers,
+  decodeAnnotatedPageContent,
+} from 'page-distiller';
+
+// High-level: launch Chromium, extract APC, and convert to Markdown
+const proto = await processPage('https://web.dev/articles/lcp');
+const markdown = convertToMarkdown(proto);
+```
+
+Or bring your own Playwright `Page` / CDP session:
+
+```ts
+const client = await page.context().newCDPSession(page);
+await client.send('Page.enable');
+
+// Optional: inject private-use markers so <pre> and <code> survive layout extraction
+await injectSemanticMarkers(page);
+
+const {content} = await client.send('Page.getAnnotatedPageContent');
+const proto = decodeAnnotatedPageContent(content);
+const markdown = convertToMarkdown(proto);
+```
+
+**Headless note:** When launching Chromium yourself, use Chrome's new headless mode (`headless: false` in Playwright with `--headless=new` in `args`, plus `--enable-features=OptimizationHints,PageContentAnnotation,OptimizationGuideModelDownloading --enable-dom-distiller`). Legacy headless mode fails with a CDP `Protocol error` on `Page.getAnnotatedPageContent`, and `about:blank` / empty pages will also reject.
+
+## Tradeoffs: Visual Extraction vs. HTML Syntax Parsers
+
+Because `AnnotatedPageContent` throws away raw HTML tag names in favor of rendered layout and computed styles, it intentionally behaves differently from syntax-driven parsers like [Turndown](https://github.com/mixmark-io/turndown):
+
+- Blink's `TextStyle` collapses `<b>`, `<strong>`, `<i>`, `<em>`, and `<u>` into a **single `has_emphasis: true` boolean**, which we render as `**bold**`.
+- `<blockquote>` elements **flatten to normal paragraphs**. Blink's layout extractor maps `<blockquote>` to `AX_ROLE_UNKNOWN`, and injecting `> ` prefixes into raw DOM nodes breaks across multi-line blocks.
+- When using `--base64-stdin` on a payload captured **without `injectSemanticMarkers()`**, `<pre>` and `<code>` blocks lack our private-use DOM delimiters and emit as regular text.
+
+We test against Turndown's suite in [`test/turndown-cdp.test.ts`](./test/turndown-cdp.test.ts): `pnpm test` runs the 37 syntax cases we expect to match verbatim alongside our CDP layout stress tests, while `pnpm run test:compatibility` runs all 139 Turndown cases for gap analysis.
+
+To pull the latest `common_quality_data.proto` from Chromium `main` and regenerate the TypeScript protobuf bindings, see [updating.md](./updating.md).
