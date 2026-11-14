@@ -1,0 +1,35 @@
+{
+  "name": "page-distiller",
+  "version": "0.1.0",
+  "description": "Extract distilled Markdown from web pages using Chromium's on-device ML page content annotation.",
+  "type": "module",
+  "bin": {
+    "page-distiller": "./scripts/distill-page.ts",
+    "distill-page": "./scripts/distill-page.ts"
+  },
+  "exports": {
+    ".": "./scripts/distill-page.ts"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --test \"test/!(*cdp).test.ts\"",
+    "test:cdp": "node --test test/cdp.test.ts && node --test test/turndown-cdp.test.ts",
+    "test:compatibility": "RUN_ALL_TURNDOWN_TESTS=1 node --test test/turndown-cdp.test.ts",
+    "test": "pnpm run test:unit && pnpm run test:cdp",
+    "preflight": "pnpm typecheck && pnpm test"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "2.12.1",
+    "playwright": "1.61.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.5",
+    "@types/turndown": "^5.0.6",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2",
+    "typescript": "^5.9.3"
+  }
+}
