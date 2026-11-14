@@ -10,12 +10,12 @@
   },
   "type": "module",
   "bin": {
-    "chromium-clean-markdown": "./scripts/distill-page.ts",
-    "clean-md": "./scripts/distill-page.ts",
-    "distill-page": "./scripts/distill-page.ts"
+    "chromium-clean-markdown": "./src/distill-page.ts",
+    "clean-md": "./src/distill-page.ts",
+    "distill-page": "./src/distill-page.ts"
   },
   "exports": {
-    ".": "./scripts/distill-page.ts"
+    ".": "./src/distill-page.ts"
   },
   "engines": {
     "node": ">=24.11.0"

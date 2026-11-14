@@ -15,7 +15,7 @@ Unlike generic HTML-to-Markdown parsers (e.g. Turndown) that convert the entire 
 npx chromium-clean-markdown [--json] <URL>
 ```
 
-(Or from a local checkout: `node scripts/distill-page.ts [--json] <URL>`)
+(Or from a local checkout: `node src/distill-page.ts [--json] <URL>`)
 
 ### Options:
 * `--json`: Output the raw decoded `AnnotatedPageContent` protobuf as JSON instead of Markdown (Markdown is the default).

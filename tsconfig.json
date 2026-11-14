@@ -17,11 +17,10 @@
     ]
   },
   "include": [
-    "scripts/**/*",
+    "src/**/*",
     "test/**/*"
   ],
   "exclude": [
-    "scripts/proto/common_quality_data_pbjs.js",
     "submodules/**/*"
   ]
 }

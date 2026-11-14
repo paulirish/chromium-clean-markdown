@@ -11,7 +11,7 @@ We regularly pull the latest `common_quality_data.proto` from the Chromium sourc
 To fetch the latest proto file and compile it, run the following command from the repository root:
 
 ```bash
-node scripts/update-proto.ts
+node src/update-proto.ts
 ```
 
 ---
@@ -21,14 +21,14 @@ node scripts/update-proto.ts
 After running the script, use Git to inspect what changed in the proto file itself:
 
 ```bash
-git diff scripts/proto/common_quality_data.proto
+git diff src/proto/common_quality_data.proto
 ```
 
 Scan the diff for the following:
 
 ### A. Breaking Changes
 * **What to look for:** Renamed fields, deleted fields (often marked as `reserved`), or changed types.
-* **Action:** Search the distiller codebase (`scripts/decode_annotations.ts` and `scripts/distill-page.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
+* **Action:** Search the distiller codebase (`src/decode_annotations.ts` and `src/distill-page.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
 
 ### B. Opportunities for Higher-Fidelity Markdown
 * **What to look for:**
@@ -54,7 +54,7 @@ pnpm run preflight
 ## Step 4: Implement Improvements (If applicable)
 
 If you identify opportunities in Step 2:
-1. Update `scripts/decode_annotations.ts` to use the new proto fields/enums.
+1. Update `src/decode_annotations.ts` to use the new proto fields/enums.
 2. Add new test cases or mock fixtures in `test/` to cover the new features.
 3. Verify `pnpm run preflight` passes.
 
@@ -65,7 +65,7 @@ If you identify opportunities in Step 2:
 Once verified, stage all changes and amend the current task commit to keep the Git history clean:
 
 ```bash
-git add scripts/proto/ scripts/update-proto.ts updating.md
+git add src/proto/ src/update-proto.ts updating.md
 # Stage any other modified implementation/test files specifically
 git commit --amend --no-edit
 ```

@@ -3,9 +3,9 @@ import assert from 'node:assert';
 import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {convertToMarkdown} from '../scripts/distill-page.ts';
+import {convertToMarkdown} from '../src/distill-page.ts';
 import {fromJson} from '@bufbuild/protobuf';
-import {AnnotatedPageContentSchema} from '../scripts/proto/common_quality_data_pb.js';
+import {AnnotatedPageContentSchema} from '../src/proto/common_quality_data_pb.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
