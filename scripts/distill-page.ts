@@ -135,11 +135,11 @@ if (isMain) {
 
     if (!url) {
       console.log(`
-Usage (URL fetches via Playwright): node agents/skills/distill-page/scripts/distill-page.ts [--json] <URL>
-Usage (Base64 stdin bypasses Playwright): node agents/skills/distill-page/scripts/distill-page.ts --base64-stdin [--json] < base64.txt
+Usage (URL fetches via Playwright): page-distiller [--json] <URL>
+Usage (Base64 stdin bypasses Playwright): page-distiller --base64-stdin [--json] < base64.txt
 
-Example (Outputs Markdown): node agents/skills/distill-page/scripts/distill-page.ts https://www.debugbear.com/blog/content-visibility-api
-Example (Outputs JSON): node agents/skills/distill-page/scripts/distill-page.ts --json https://www.debugbear.com/blog/content-visibility-api
+Example (Outputs Markdown): page-distiller https://www.debugbear.com/blog/content-visibility-api
+Example (Outputs JSON): page-distiller --json https://www.debugbear.com/blog/content-visibility-api
       `);
       process.exit(1);
     }

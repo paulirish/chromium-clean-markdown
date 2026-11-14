@@ -1,36 +1,34 @@
 ---
 name: distill-page
-description: Extract distilled page content as Markdown using Chromium's on-device ML page content annotation.
+description: Extract distilled page content as Markdown using Chromium's AnnotatedPageContent CDP extraction.
 ---
 
 # Page Distiller Skill
 
-This skill extracts high-quality, noise-free Markdown content from a webpage using Chromium's experimental, on-device Machine Learning model annotations (`Page.getAnnotatedPageContent`).
+Extracts clean, noise-free Markdown from a webpage using Chromium's experimental `Page.getAnnotatedPageContent` CDP command (`AIPageContentAgent`).
 
-Unlike generic HTML-to-Markdown parsers (e.g. Turndown) which rely on markup syntax heuristics, this approach uses Chromium's visual ML layout analysis. It automatically identifies semantic roles (such as `ARTICLE` and `MAIN`) and excludes sidebars, navigation elements, footers, and popups.
+Unlike generic HTML-to-Markdown parsers (e.g. Turndown) that convert the entire DOM tree, this approach uses Blink's layout-tree extraction to isolate primary content (`MAIN` / `ARTICLE`) and strip navigation bars, footers, ads, and wrapper soup.
 
 ## Usage
 
 ```bash
-node agents/skills/distill-page/scripts/distill-page.ts [--markdown] <URL>
+npx page-distiller [--json] <URL>
 ```
 
+(Or from a local checkout: `node scripts/distill-page.ts [--json] <URL>`)
+
 ### Options:
-* `--markdown`: Output as distilled Markdown (recommended). Without this, it outputs the raw decoded protobuf JSON.
-* `--base64-stdin`: Instead of fetching via Playwright, decode a base64-encoded protobuf payload passed via stdin.
+* `--json`: Output the raw decoded `AnnotatedPageContent` protobuf as JSON instead of Markdown (Markdown is the default).
+* `--base64-stdin`: Decode a base64-encoded `AnnotatedPageContent` protobuf payload from stdin instead of launching Playwright.
 
 ### Examples:
 ```bash
-# Get markdown representation of page
-node agents/skills/distill-page/scripts/distill-page.ts --markdown https://example.com
+# Distill a webpage into clean Markdown (default)
+npx page-distiller https://example.com
 
-# Get raw JSON structure of annotated layout tree
-node agents/skills/distill-page/scripts/distill-page.ts https://example.com
+# Dump the raw JSON structure of the annotated layout tree
+npx page-distiller --json https://example.com
+
+# Decode an existing base64 CDP payload into Markdown
+npx page-distiller --base64-stdin < payload.b64
 ```
-
-## Requirements
-* Launches a headful browser (`headless: false`) and requires Chromium feature flags:
-  * `--enable-dom-distiller`
-  * `--enable-features=OptimizationHints,PageContentAnnotation,OptimizationGuideModelDownloading`
-* Playwright must be installed.
-* ProtobufJS must be installed.
