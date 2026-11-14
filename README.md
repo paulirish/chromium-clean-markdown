@@ -1,6 +1,6 @@
 # page-distiller
 
-Turn any webpage into clean Markdown (`URL -> Markdown`): **just the actual content**, without headers, footers, nav bars, sidebars, ad slots, or layout wrapper soup.
+Turn any webpage into clean Markdown (`URL -> Markdown`): **just the actual content**, without headers, footers, nav bars, sidebars, ad slots, or layout wrapper soup. Basically "Reader Mode", but outputting GFM Markdown instead of a restyled page.
 
 ```bash
 npx page-distiller https://web.dev/articles/lcp
