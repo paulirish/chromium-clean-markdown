@@ -1,6 +1,6 @@
 # Maintenance Guide: Updating Proto Definitions
 
-This guide is for coding agents tasked with updating and maintaining the Chromium `AnnotatedPageContent` protobuf definitions for `page-distiller`.
+This guide is for coding agents tasked with updating and maintaining the Chromium `AnnotatedPageContent` protobuf definitions for `chromium-clean-markdown`.
 
 We regularly pull the latest `common_quality_data.proto` from the Chromium source tree to stay in sync with upstream `AIPageContentAgent` / Optimization Guide changes and find new opportunities for higher-fidelity Markdown conversion.
 

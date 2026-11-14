@@ -12,7 +12,7 @@ Unlike generic HTML-to-Markdown parsers (e.g. Turndown) that convert the entire 
 ## Usage
 
 ```bash
-npx page-distiller [--json] <URL>
+npx chromium-clean-markdown [--json] <URL>
 ```
 
 (Or from a local checkout: `node scripts/distill-page.ts [--json] <URL>`)
@@ -24,11 +24,11 @@ npx page-distiller [--json] <URL>
 ### Examples:
 ```bash
 # Distill a webpage into clean Markdown (default)
-npx page-distiller https://example.com
+npx chromium-clean-markdown https://example.com
 
 # Dump the raw JSON structure of the annotated layout tree
-npx page-distiller --json https://example.com
+npx chromium-clean-markdown --json https://example.com
 
 # Decode an existing base64 CDP payload into Markdown
-npx page-distiller --base64-stdin < payload.b64
+npx chromium-clean-markdown --base64-stdin < payload.b64
 ```

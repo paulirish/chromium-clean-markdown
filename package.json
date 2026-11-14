@@ -1,10 +1,11 @@
 {
-  "name": "page-distiller",
+  "name": "chromium-clean-markdown",
   "version": "0.1.0",
-  "description": "Extract distilled Markdown from web pages using Chromium's on-device ML page content annotation.",
+  "description": "Turn web pages into clean, noise-free Markdown using Chromium's AnnotatedPageContent over CDP.",
   "type": "module",
   "bin": {
-    "page-distiller": "./scripts/distill-page.ts",
+    "chromium-clean-markdown": "./scripts/distill-page.ts",
+    "clean-md": "./scripts/distill-page.ts",
     "distill-page": "./scripts/distill-page.ts"
   },
   "exports": {

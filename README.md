@@ -1,9 +1,9 @@
-# page-distiller
+# chromium-clean-markdown
 
 Turn any webpage into clean Markdown (`URL -> Markdown`): **just the actual content**, without headers, footers, nav bars, sidebars, ad slots, or layout wrapper soup. Basically "Reader Mode", but outputting GFM Markdown instead of a restyled page.
 
 ```bash
-npx page-distiller https://web.dev/articles/lcp
+npx chromium-clean-markdown https://web.dev/articles/lcp
 ```
 
 ## Why? (And what is `AnnotatedPageContent`?)
@@ -14,11 +14,11 @@ Deep inside Chromium is a feature almost no web developers know about (and tbh m
 
 Chrome built [`AIPageContentAgent`](https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/content_extraction/ai_page_content_agent.cc) inside Blink to power "Gemini in Chrome" and Optimization Guide features, and exposed it over the Chrome DevTools Protocol as [`Page.getAnnotatedPageContent`](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-getAnnotatedPageContent).
 
-Calling `Page.getAnnotatedPageContent` returns a base64-encoded binary protobuf ([`common_quality_data.proto`](https://source.chromium.org/chromium/chromium/src/+/main:components/optimization_guide/proto/features/common_quality_data.proto)). `page-distiller` decodes that protobuf in Node, isolates the main content tree, and converts it into Markdown.
+Calling `Page.getAnnotatedPageContent` returns a base64-encoded binary protobuf ([`common_quality_data.proto`](https://source.chromium.org/chromium/chromium/src/+/main:components/optimization_guide/proto/features/common_quality_data.proto)). `chromium-clean-markdown` decodes that protobuf in Node, isolates the main content tree, and converts it into Markdown.
 
 In short: you get the page's real content at **50% to 70% smaller byte/token size** than converting raw HTML:
 
-| Page | Raw HTML -> `turndown` | `page-distiller` | Reduction |
+| Page | Raw HTML -> `turndown` | `chromium-clean-markdown` | Reduction |
 | :--- | ---: | ---: | ---: |
 | `web.dev/articles/lcp` | 21.0 KB | **11.0 KB** | **47% smaller** |
 | `paulirish.com` | 7.4 KB | **2.4 KB** | **67% smaller** |
@@ -32,9 +32,9 @@ Unlike Readability or DOM-to-Markdown scripts that parse raw HTML strings and gu
 - Typography comes **straight from computed styles**. Instead of trusting `<h*>` or `<b>` tags, Blink compares each text run's computed `font-size` against the root document font size to bucket text into `XL` / `L` / `M` / `S` / `XS`, and checks computed weight, slope, underline, and sub/superscript to mark emphasis.
 - Landmarks, ads, and paywalls are **tagged natively**. Blink combines HTML tags (`<main>`, `<article>`, `<nav>`, `<header>`, `<footer>`, `<aside>`, `<search>`) with ARIA roles, flags ad subtrees via Chrome's Subresource Filter, and detects schema.org paywall declarations.
 
-## How `page-distiller` turns it into Markdown
+## How `chromium-clean-markdown` turns it into Markdown
 
-Once we have the decoded `AnnotatedPageContent` tree, `page-distiller` cleans and formats it into Markdown:
+Once we have the decoded `AnnotatedPageContent` tree, `chromium-clean-markdown` cleans and formats it into Markdown:
 
 - **Isolates the primary content root** by picking the largest `main` or `article` landmark (only when it holds >= 50% of the page's text, so small promo shells or inline `<article>` cards don't hijack or truncate the page) and pruning all `nav`, `footer`, and ad-flagged subtrees.
 - **Preserves `<pre>` and `<code>` blocks.** Blink's layout extractor ignores monospace fonts and `<code>`/`<pre>` tags (left alone, code flattens into plain text). Before calling CDP, we inject invisible private-use delimiters around `<code>` and `<pre>` in the DOM so fenced code blocks and inline backticks survive layout extraction.
@@ -46,13 +46,13 @@ Once we have the decoded `AnnotatedPageContent` tree, `page-distiller` cleans an
 
 ```bash
 # Fetch a URL with Playwright and output distilled Markdown
-npx page-distiller https://www.debugbear.com/blog/content-visibility-api
+npx chromium-clean-markdown https://www.debugbear.com/blog/content-visibility-api
 
 # Dump the raw decoded AnnotatedPageContent protobuf as JSON
-npx page-distiller --json https://www.debugbear.com/blog/content-visibility-api
+npx chromium-clean-markdown --json https://www.debugbear.com/blog/content-visibility-api
 
 # Decode a base64 payload from stdin (skips launching Playwright)
-npx page-distiller --base64-stdin < payload.b64
+npx chromium-clean-markdown --base64-stdin < payload.b64
 ```
 
 ## JS / TS API
@@ -63,7 +63,7 @@ import {
   convertToMarkdown,
   injectSemanticMarkers,
   decodeAnnotatedPageContent,
-} from 'page-distiller';
+} from 'chromium-clean-markdown';
 
 // High-level: launch Chromium, extract APC, and convert to Markdown
 const proto = await processPage('https://web.dev/articles/lcp');
