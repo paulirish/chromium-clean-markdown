@@ -22,14 +22,14 @@
     "preflight": "pnpm typecheck && pnpm test"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "2.12.1",
-    "playwright": "1.61.1"
+    "@bufbuild/protobuf": "2.17.0",
+    "playwright": "1.65.1"
   },
   "devDependencies": {
-    "@types/node": "^25.9.5",
+    "@types/node": "^26.6.6",
     "@types/turndown": "^5.0.6",
-    "turndown": "^7.2.4",
+    "turndown": "^7.2.5",
     "turndown-plugin-gfm": "^1.0.2",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   }
 }

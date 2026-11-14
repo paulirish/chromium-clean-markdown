@@ -68,11 +68,11 @@ Here is a preformatted code block:
 }
 ```
 
-Here is an image: ![With URL][image01]
+Here is an image: ![With URL](file:///Users/paulirish/code/page-distiller/test/fixtures/mock-image.png)
 
-First reference image: ![image][image02] Reference Image A
+First reference image: ![image][image01] Reference Image A
 
-Second reference image: ![image][image03] Reference Image B
+Second reference image: ![image][image02] Reference Image B
 
 Here is a styled paragraph that should not split into heading tags:
 
