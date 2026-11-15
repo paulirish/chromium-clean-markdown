@@ -10,17 +10,20 @@
   },
   "type": "module",
   "files": [
-    "src",
+    "dist",
     "skills",
     "README.md",
     "LICENSE"
   ],
   "bin": {
-    "chromium-clean-markdown": "src/index.ts",
-    "clean-md": "src/index.ts"
+    "chromium-clean-markdown": "dist/index.mjs",
+    "clean-md": "dist/index.mjs"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    }
   },
   "engines": {
     "node": ">=24.11.0"
@@ -31,8 +34,10 @@
     "test:cdp": "node --test test/cdp.test.ts && node --test test/turndown-cdp.test.ts",
     "test:compatibility": "RUN_ALL_TURNDOWN_TESTS=1 node --test test/turndown-cdp.test.ts",
     "test": "pnpm run test:unit && pnpm run test:cdp",
-    "preflight": "pnpm typecheck && pnpm test",
-    "update-proto": "node src/update-proto.ts"
+    "preflight": "pnpm typecheck && pnpm run build && pnpm test",
+    "update-proto": "node src/update-proto.ts",
+    "build": "tsdown src/index.ts --dts --format esm --out-dir dist",
+    "prepack": "pnpm run build"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",
@@ -41,6 +46,7 @@
   "devDependencies": {
     "@types/node": "^26.6.6",
     "@types/turndown": "^5.0.6",
+    "tsdown": "^0.23.7",
     "turndown": "^7.2.5",
     "turndown-plugin-gfm": "^1.0.2",
     "typescript": "^7.0.2"
