@@ -9,6 +9,12 @@
     "url": "https://github.com/paulirish/chromium-clean-markdown.git"
   },
   "type": "module",
+  "files": [
+    "src",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
   "bin": {
     "chromium-clean-markdown": "./src/distill-page.ts",
     "clean-md": "./src/distill-page.ts",
@@ -26,7 +32,8 @@
     "test:cdp": "node --test test/cdp.test.ts && node --test test/turndown-cdp.test.ts",
     "test:compatibility": "RUN_ALL_TURNDOWN_TESTS=1 node --test test/turndown-cdp.test.ts",
     "test": "pnpm run test:unit && pnpm run test:cdp",
-    "preflight": "pnpm typecheck && pnpm test"
+    "preflight": "pnpm typecheck && pnpm test",
+    "update-proto": "node src/update-proto.ts"
   },
   "dependencies": {
     "@bufbuild/protobuf": "2.17.0",
