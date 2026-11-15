@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/paulirish/chromium-clean-markdown.git"
+    "url": "git+https://github.com/paulirish/chromium-clean-markdown.git"
   },
   "type": "module",
   "files": [
