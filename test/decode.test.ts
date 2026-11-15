@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import {fromJson, toBinary} from '@bufbuild/protobuf';
 import type {JsonValue} from '@bufbuild/protobuf';
 import {AnnotatedPageContentSchema, ContentAttributeType} from '../src/proto/common_quality_data_pb.js';
-import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/distill-page.ts';
+import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/index.ts';
 
 const {CONTENT_ATTRIBUTE_TEXT, CONTENT_ATTRIBUTE_IMAGE, CONTENT_ATTRIBUTE_IFRAME, CONTENT_ATTRIBUTE_MATH} = ContentAttributeType;
 

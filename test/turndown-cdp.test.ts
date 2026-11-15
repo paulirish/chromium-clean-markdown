@@ -4,7 +4,7 @@ import {chromium} from 'playwright';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/decode_annotations.ts';
-import {injectSemanticMarkers} from '../src/distill-page.ts';
+import {injectSemanticMarkers} from '../src/index.ts';
 import TurndownService from 'turndown';
 // @ts-expect-error - no types for turndown-plugin-gfm
 import {gfm} from 'turndown-plugin-gfm';

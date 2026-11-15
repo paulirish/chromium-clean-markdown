@@ -16,12 +16,11 @@
     "LICENSE"
   ],
   "bin": {
-    "chromium-clean-markdown": "./src/distill-page.ts",
-    "clean-md": "./src/distill-page.ts",
-    "distill-page": "./src/distill-page.ts"
+    "chromium-clean-markdown": "./src/index.ts",
+    "clean-md": "./src/index.ts"
   },
   "exports": {
-    ".": "./src/distill-page.ts"
+    ".": "./src/index.ts"
   },
   "engines": {
     "node": ">=24.11.0"

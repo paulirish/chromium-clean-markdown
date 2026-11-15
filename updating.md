@@ -28,7 +28,7 @@ Scan the diff for the following:
 
 ### A. Breaking Changes
 * **What to look for:** Renamed fields, deleted fields (often marked as `reserved`), or changed types.
-* **Action:** Search the distiller codebase (`src/decode_annotations.ts` and `src/distill-page.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
+* **Action:** Search the codebase (`src/decode_annotations.ts` and `src/index.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
 
 ### B. Opportunities for Higher-Fidelity Markdown
 * **What to look for:**

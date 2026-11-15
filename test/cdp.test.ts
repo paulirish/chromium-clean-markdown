@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import fs from 'node:fs';
-import {fetchDistilledBase64, decodeAnnotatedPageContent, convertToMarkdown} from '../src/distill-page.ts';
+import {fetchDistilledBase64, decodeAnnotatedPageContent, convertToMarkdown} from '../src/index.ts';
 import {AnnotationParser} from '../src/decode_annotations.ts';
 import {AnnotatedRole} from '../src/proto/common_quality_data_pb.js';
 
