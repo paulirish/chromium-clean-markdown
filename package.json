@@ -16,8 +16,8 @@
     "LICENSE"
   ],
   "bin": {
-    "chromium-clean-markdown": "./src/index.ts",
-    "clean-md": "./src/index.ts"
+    "chromium-clean-markdown": "src/index.ts",
+    "clean-md": "src/index.ts"
   },
   "exports": {
     ".": "./src/index.ts"
