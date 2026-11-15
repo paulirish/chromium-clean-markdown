@@ -44,5 +44,6 @@
     "turndown": "^7.2.5",
     "turndown-plugin-gfm": "^1.0.2",
     "typescript": "^7.0.2"
-  }
+  },
+  "packageManager": "pnpm@10.30.3"
 }
