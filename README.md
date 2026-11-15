@@ -97,3 +97,5 @@ Because `AnnotatedPageContent` throws away raw HTML tag names in favor of render
 We test against Turndown's suite in [`test/turndown-cdp.test.ts`](./test/turndown-cdp.test.ts): `pnpm test` runs the 37 syntax cases we expect to match verbatim alongside our CDP layout stress tests, while `pnpm run test:compatibility` runs all 139 Turndown cases for gap analysis.
 
 To pull the latest `common_quality_data.proto` from Chromium `main` and regenerate the TypeScript bindings, see [updating.md](./updating.md).
+
+[![npm version](https://img.shields.io/npm/v/chromium-clean-markdown.svg)](https://www.npmjs.com/package/chromium-clean-markdown)
