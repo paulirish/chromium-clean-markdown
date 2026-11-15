@@ -5,7 +5,7 @@ import type {JsonValue} from '@bufbuild/protobuf';
 import {AnnotatedPageContentSchema, ContentAttributeType} from '../src/proto/common_quality_data_pb.js';
 import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/distill-page.ts';
 
-const {CONTENT_ATTRIBUTE_TEXT, CONTENT_ATTRIBUTE_IMAGE, CONTENT_ATTRIBUTE_IFRAME} = ContentAttributeType;
+const {CONTENT_ATTRIBUTE_TEXT, CONTENT_ATTRIBUTE_IMAGE, CONTENT_ATTRIBUTE_IFRAME, CONTENT_ATTRIBUTE_MATH} = ContentAttributeType;
 
 function getMarkdown(payload: JsonValue): string {
   const buffer = toBinary(AnnotatedPageContentSchema, fromJson(AnnotatedPageContentSchema, payload));
@@ -103,4 +103,59 @@ test('convertToMarkdown replaces a failed CodePen iframe with a link', () => {
     getMarkdown(payload),
     '[Link to codepen.io embed](https://codepen.io/example/embed/preview/bJOrK?editable=true)',
   );
+});
+
+test('convertToMarkdown emits strippedMathml and skips fallback text descendants', () => {
+  const payload: JsonValue = {
+    rootNode: {
+      childrenNodes: [
+        {
+          contentAttributes: {
+            attributeType: CONTENT_ATTRIBUTE_MATH,
+            mathData: {
+              strippedMathml: '<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>',
+              isBlock: false,
+            },
+          },
+          childrenNodes: [
+            {
+              contentAttributes: {
+                attributeType: CONTENT_ATTRIBUTE_TEXT,
+                textData: {textContent: 'ab'},
+              },
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  assert.strictEqual(getMarkdown(payload), '<math><mfrac><mi>a</mi><mi>b</mi></mfrac></math>');
+});
+
+test('convertToMarkdown falls back to math descendants when strippedMathml is unset', () => {
+  const payload: JsonValue = {
+    rootNode: {
+      childrenNodes: [
+        {
+          contentAttributes: {
+            attributeType: CONTENT_ATTRIBUTE_MATH,
+            mathData: {
+              isBlock: true,
+            },
+          },
+          childrenNodes: [
+            {
+              contentAttributes: {
+                attributeType: CONTENT_ATTRIBUTE_TEXT,
+                textData: {textContent: 'x + y'},
+              },
+            },
+          ],
+        },
+      ],
+    },
+  };
+
+  assert.strictEqual(getMarkdown(payload), 'x + y');
 });

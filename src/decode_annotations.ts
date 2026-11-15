@@ -1,6 +1,6 @@
 import {fromBinary, create} from '@bufbuild/protobuf';
 import {AnnotatedPageContentSchema, AnnotatedRole, ContentAttributeType, TextSize, TableRowType, ContentNodeSchema} from './proto/common_quality_data_pb.js';
-import type {ContentNode, AnnotatedPageContent, TextInfo, ImageInfo, AnchorData, TableData, IframeData} from './proto/common_quality_data_pb.js';
+import type {ContentNode, AnnotatedPageContent, TextInfo, ImageInfo, AnchorData, TableData, IframeData, MathData} from './proto/common_quality_data_pb.js';
 import {INLINE_CODE_CLOSE_MARKER, INLINE_CODE_OPEN_MARKER, PRE_CLOSE_MARKER, PRE_OPEN_MARKER} from './semantic_markers.ts';
 
 const {
@@ -43,7 +43,12 @@ export interface ASTEmbed {
   label: string;
 }
 
-export type ASTInlineNode = ASTTextRun | ASTLink | ASTImage | ASTEmbed;
+export interface ASTMath {
+  type: 'math';
+  data: MathData;
+}
+
+export type ASTInlineNode = ASTTextRun | ASTLink | ASTImage | ASTEmbed | ASTMath;
 export type ASTNonTextInlineNode = Exclude<ASTInlineNode, ASTTextRun>;
 
 export interface ASTParagraph {
@@ -195,7 +200,7 @@ export const AnnotationParser = {
   },
 
   isInlineNode(node: ASTBlockNode | ASTInlineNode): node is ASTInlineNode {
-    return node.type === 'text' || node.type === 'link' || node.type === 'image' || node.type === 'embed';
+    return node.type === 'text' || node.type === 'link' || node.type === 'image' || node.type === 'embed' || node.type === 'math';
   },
 
   parseChildrenFlat(nodes: ContentNode[], state: ParserState): (ASTBlockNode | ASTInlineNode)[] {
@@ -294,7 +299,7 @@ export const AnnotationParser = {
                 const nodeState = {...state};
                 const items = this.parseNode(virtualTextNode, nodeState);
                 for (const item of items) {
-                  if (item.type === 'text' || item.type === 'link' || item.type === 'image' || item.type === 'embed') {
+                  if (this.isInlineNode(item)) {
                     inlineAccumulator.push(item);
                   } else if (item.type === 'paragraph') {
                     inlineAccumulator.push(...item.children);
@@ -486,6 +491,14 @@ export const AnnotationParser = {
     return defaultParsed;
   },
 
+  parseMathNode(node: ContentNode, mathData: MathData, state: ParserState): (ASTBlockNode | ASTInlineNode)[] {
+    // Fallback to rendered text descendants when stripped_mathml is unset (>65KB or >64 nesting levels).
+    if (!mathData.strippedMathml) {
+      return this.parseDefaultNode(node, state);
+    }
+    return [{type: 'math', data: mathData}];
+  },
+
   parseParagraphNode(node: ContentNode, state: ParserState): ASTParagraph[] {
     const childState = {...state, insideParagraph: true};
     const inlineChildren = this.parseInlineChildren(node.childrenNodes || [], childState);
@@ -656,6 +669,8 @@ export const AnnotationParser = {
         return this.parseAnchorNode(node, attrs.contentData.value, state);
       case 'iframeData':
         return this.parseIframeNode(node, attrs.contentData.value, state);
+      case 'mathData':
+        return this.parseMathNode(node, attrs.contentData.value, state);
     }
 
     // 2. Dispatch by structural attribute type
@@ -821,6 +836,9 @@ export const MarkdownSerializer = {
     }
     if (node.type === 'embed') {
       return `[${node.label}](${node.url})`;
+    }
+    if (node.type === 'math') {
+      return node.data.strippedMathml;
     }
 
     node satisfies never;
