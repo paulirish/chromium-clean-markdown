@@ -1,6 +1,6 @@
 {
   "name": "chromium-clean-markdown",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Turn web pages into clean, noise-free Markdown using Chromium's AnnotatedPageContent over CDP.",
   "author": "Paul Irish",
   "license": "Apache-2.0",
