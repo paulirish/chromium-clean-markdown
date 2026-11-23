@@ -37,7 +37,7 @@ Unlike Readability or DOM-to-Markdown scripts that parse raw HTML strings and gu
 Once we have the decoded `AnnotatedPageContent` tree, `chromium-clean-markdown` cleans and formats it into Markdown:
 
 - **Isolates the primary content root** by picking the largest `main` or `article` landmark (only when it holds >= 50% of the page's text, so small promo shells or inline `<article>` cards don't hijack or truncate the page) and pruning all `nav`, `footer`, and ad-flagged subtrees.
-- **Preserves `<pre>` and `<code>` blocks.** Blink's layout extractor ignores monospace fonts and `<code>`/`<pre>` tags (left alone, code flattens into plain text). Before calling CDP, we inject invisible private-use delimiters around `<code>` and `<pre>` in the DOM so fenced code blocks and inline backticks survive layout extraction.
+- **Preserves `<pre>`, `<code>`, and `<blockquote>`.** Blink's layout extractor drops raw tag names for code and blockquotes. When you pass a `DOMSnapshot.captureSnapshot` payload via `convertToMarkdown(proto, {domSnapshot})`, `chromium-clean-markdown` maps each node's `commonAncestorDomNodeId` back to its DOM ancestors to recover inline `<code>`, fenced `<pre>` (with `language-*` / `lang-*` info strings), and multi-line/nested `<blockquote>` with zero DOM mutation. (The CLI / `processPage()` helper also supports a DOM-marker pass for standalone APC captures.)
 - **Sizes headings from layout** (`XL` -> `#`, `L` -> `##`, `M` -> `###`, `S`/`XS` -> `####`) and strips noisy permalink anchors (`#`, `¶`, `🔗`, `permalink`) inside headings.
 - **Suppresses bolding inside links** (since Blink marks almost all colored/underlined link text as emphasized).
 - **Keeps callouts, accordions, tables, and embeds intact**, wrapping sidebars in `<aside>`, hidden/collapsed sections in `<details>`, paywalled sections in `[!IMPORTANT]` alerts, and turning broken iframes (`<host> refused to connect.`) into clean `[Link to <host> embed](url)` links.
@@ -70,18 +70,21 @@ const proto = await processPage('https://web.dev/articles/lcp');
 const markdown = convertToMarkdown(proto);
 ```
 
-Or bring your own Playwright `Page` / CDP session:
+Or bring your own CDP session with the **zero-dependency `chromium-clean-markdown/decode` subpath** (no Playwright import, `@bufbuild/protobuf` bundled) and zero DOM mutation:
 
 ```ts
-const client = await page.context().newCDPSession(page);
-await client.send('Page.enable');
+import {
+  decodeAnnotatedPageContent,
+  convertToMarkdown,
+} from 'chromium-clean-markdown/decode';
 
-// Optional: inject markers so <pre> and <code> survive layout extraction
-await injectSemanticMarkers(page);
+const [{content}, domSnapshot] = await Promise.all([
+  client.send('Page.getAnnotatedPageContent'),
+  client.send('DOMSnapshot.captureSnapshot', {computedStyles: []}),
+]);
 
-const {content} = await client.send('Page.getAnnotatedPageContent');
 const proto = decodeAnnotatedPageContent(content);
-const markdown = convertToMarkdown(proto);
+const markdown = convertToMarkdown(proto, {domSnapshot});
 ```
 
 **Playwright note:** When launching Chromium yourself, pass `chromium.launch({channel: 'chromium'})` so Playwright uses full Chrome for Testing (`--headless=new`) rather than `chrome-headless-shell`. Also note that `Page.getAnnotatedPageContent` rejects on `about:blank` or empty pages.
@@ -91,8 +94,7 @@ const markdown = convertToMarkdown(proto);
 Because `AnnotatedPageContent` throws away raw HTML tag names in favor of rendered layout and computed styles, it intentionally behaves differently from syntax-driven parsers like [Turndown](https://github.com/mixmark-io/turndown):
 
 - Blink collapses `<b>`, `<strong>`, `<i>`, `<em>`, and `<u>` into a **single emphasis boolean**, which we render as `**bold**`.
-- `<blockquote>` elements **flatten to normal paragraphs** (Blink doesn't emit a blockquote role, and injecting `> ` into the DOM breaks across wrapped lines).
-- Payloads captured via `--base64-stdin` **without the DOM marker pass** emit `<pre>` and `<code>` as regular text.
+- Without `{domSnapshot}`, `<blockquote>` elements flatten to normal paragraphs (and `--base64-stdin` payloads without the DOM marker pass emit `<pre>` and `<code>` as regular text). Passing `{domSnapshot}` recovers all three cleanly with no DOM mutation.
 
 We test against Turndown's suite in [`test/turndown-cdp.test.ts`](./test/turndown-cdp.test.ts): `pnpm test` runs the 37 syntax cases we expect to match verbatim alongside our CDP layout stress tests, while `pnpm run test:compatibility` runs all 139 Turndown cases for gap analysis.
 
