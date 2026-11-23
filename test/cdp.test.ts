@@ -251,3 +251,63 @@ test('CDP Page.getAnnotatedPageContent on mock-page.html', async () => {
   assert.ok(!md.includes('About Us'), 'Should skip nav block content');
   assert.ok(!md.includes('Mock Company. All rights reserved.'), 'Should skip footer block content');
 });
+
+test('domSnapshot recovers inline code, fenced pre with language, and blockquotes with zero DOM mutation', async () => {
+  const {chromium} = await import('playwright');
+  const browser = await chromium.launch({channel: 'chromium'});
+  try {
+    const page = await browser.newPage();
+    const client = await page.context().newCDPSession(page);
+    await client.send('Page.enable');
+
+    // 1. Verify stress fixture without injectSemanticMarkers
+    const stressPath = path.resolve(__dirname, 'fixtures', 'extractor-stress-cases.html');
+    await page.goto(`file://${stressPath}`, {waitUntil: 'load'});
+    const [stressApc, stressSnap] = await Promise.all([
+      client.send('Page.getAnnotatedPageContent'),
+      client.send('DOMSnapshot.captureSnapshot', {computedStyles: []}),
+    ]);
+    const stressMd = convertToMarkdown(decodeAnnotatedPageContent(stressApc.content), {domSnapshot: stressSnap});
+
+    assert.ok(stressMd.includes('**EMPHASIS-CODE-SENTINEL: Inline `auto`. Then `0` remains inside one emphasized sentence.**'));
+    assert.ok(stressMd.includes('CODE-LINK-SENTINEL: Read [`API.method()`](https://example.com/api) for details.'));
+    assert.ok(stressMd.includes('NESTED-INLINE-CODE-SENTINEL: `outer inner tail`.'));
+    assert.ok(stressMd.includes('```shell\nrg --files notes | sort\ngit status --short\n```'));
+    assert.ok(stressMd.includes('```css\n/* NESTED-PRE-CODE-SENTINEL */\n.nested-pre { color: darkseagreen; }\n```'));
+
+    // 2. Verify multi-paragraph and nested blockquotes + code blocks with zero DOM mutation
+    await page.setContent(`<!doctype html><html><body><main>
+      <p>Lead with <code>inline()</code>.</p>
+      <blockquote>
+        <p>First quote line.</p>
+        <p>Second line with <code>code</code>.</p>
+        <blockquote><p>Nested quote.</p></blockquote>
+      </blockquote>
+      <pre><code class="language-ts">const ok = true;</code></pre>
+    </main></body></html>`, {waitUntil: 'load'});
+
+    const [bqApc, bqSnap] = await Promise.all([
+      client.send('Page.getAnnotatedPageContent'),
+      client.send('DOMSnapshot.captureSnapshot', {computedStyles: []}),
+    ]);
+    const bqMd = convertToMarkdown(decodeAnnotatedPageContent(bqApc.content), {domSnapshot: bqSnap});
+    assert.strictEqual(
+      bqMd,
+      [
+        'Lead with `inline()`.',
+        '',
+        '> First quote line.',
+        '>',
+        '> Second line with `code`.',
+        '>',
+        '> > Nested quote.',
+        '',
+        '```ts',
+        'const ok = true;',
+        '```',
+      ].join('\n'),
+    );
+  } finally {
+    await browser.close();
+  }
+});

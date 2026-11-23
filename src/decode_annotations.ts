@@ -2,6 +2,14 @@ import {fromBinary, create} from '@bufbuild/protobuf';
 import {AnnotatedPageContentSchema, AnnotatedRole, ContentAttributeType, TextSize, TableRowType, ContentNodeSchema} from './proto/common_quality_data_pb.js';
 import type {ContentNode, AnnotatedPageContent, TextInfo, ImageInfo, AnchorData, TableData, IframeData, MathData} from './proto/common_quality_data_pb.js';
 import {INLINE_CODE_CLOSE_MARKER, INLINE_CODE_OPEN_MARKER, PRE_CLOSE_MARKER, PRE_OPEN_MARKER} from './semantic_markers.ts';
+import {buildDomSnapshotIndex} from './dom_snapshot.ts';
+import type {DOMSnapshot, DomSnapshotIndex} from './dom_snapshot.ts';
+
+export type {DOMSnapshot, DOMSnapshotDocument, DOMSnapshotNodeTree} from './dom_snapshot.ts';
+
+export interface ConvertToMarkdownOptions {
+  domSnapshot?: DOMSnapshot;
+}
 
 const {
   CONTENT_ATTRIBUTE_TEXT,
@@ -102,7 +110,12 @@ export interface ASTCallout {
   children: ASTBlockNode[];
 }
 
-export type ASTBlockNode = ASTParagraph | ASTHeading | ASTCodeBlock | ASTList | ASTTable | ASTCallout | ASTImage;
+export interface ASTBlockquote {
+  type: 'blockquote';
+  children: ASTBlockNode[];
+}
+
+export type ASTBlockNode = ASTParagraph | ASTHeading | ASTCodeBlock | ASTList | ASTTable | ASTCallout | ASTBlockquote | ASTImage;
 
 export interface ASTDocument {
   title?: string;
@@ -117,6 +130,8 @@ interface ParserState {
   insideCodeBlock: boolean;
   insideInlineCode: boolean;
   currentUrl?: string | null;
+  domIndex?: DomSnapshotIndex;
+  activeBlockquoteIds: ReadonlySet<number>;
 }
 
 const SEMANTIC_MARKERS = [
@@ -236,6 +251,19 @@ export const AnnotationParser = {
     return text;
   },
 
+  getDomPreId(node: ContentNode, domIndex?: DomSnapshotIndex): number | undefined {
+    return domIndex?.getOutermostPreId(node.contentAttributes?.commonAncestorDomNodeId);
+  },
+
+  getUnenteredBlockquoteId(node: ContentNode, state: ParserState): number | undefined {
+    if (!state.domIndex) return undefined;
+    const ids = state.domIndex.getBlockquoteIds(node.contentAttributes?.commonAncestorDomNodeId);
+    for (const id of ids) {
+      if (!state.activeBlockquoteIds.has(id)) return id;
+    }
+    return undefined;
+  },
+
   parseChildren(nodes: ContentNode[], state: ParserState): ASTBlockNode[] {
     const blocks: ASTBlockNode[] = [];
     let inlineAccumulator: ASTInlineNode[] = [];
@@ -251,9 +279,67 @@ export const AnnotationParser = {
     };
 
     let activeCodeBlock: ASTCodeBlock | null = null;
+    let activeDomPreId: number | null = null;
 
-    for (const child of nodes) {
+    const flushDomCodeBlock = () => {
+      if (activeDomPreId !== null) {
+        if (activeCodeBlock) {
+          blocks.push(activeCodeBlock);
+          activeCodeBlock = null;
+        }
+        activeDomPreId = null;
+      }
+    };
+
+    for (let i = 0; i < nodes.length; i++) {
+      const child = nodes[i];
       const childAttrs = child.contentAttributes;
+
+      if (!state.insideCodeBlock) {
+        const domPreId = this.getDomPreId(child, state.domIndex);
+        if (activeDomPreId !== null && domPreId !== activeDomPreId) {
+          flushDomCodeBlock();
+        }
+
+        if (activeDomPreId === null) {
+          const bqId = this.getUnenteredBlockquoteId(child, state);
+          if (bqId !== undefined) {
+            flushInlines();
+            const group: ContentNode[] = [child];
+            while (i + 1 < nodes.length && this.getUnenteredBlockquoteId(nodes[i + 1], state) === bqId) {
+              i++;
+              group.push(nodes[i]);
+            }
+            const nextBlockquotes = new Set(state.activeBlockquoteIds);
+            nextBlockquotes.add(bqId);
+            const bqState: ParserState = {
+              ...state,
+              insideParagraph: false,
+              insideHeading: false,
+              activeBlockquoteIds: nextBlockquotes,
+            };
+            const blockChildren = this.parseChildren(group, bqState);
+            if (blockChildren.length > 0) {
+              blocks.push({type: 'blockquote', children: blockChildren});
+            }
+            continue;
+          }
+        }
+
+        if (domPreId !== undefined) {
+          if (activeDomPreId !== domPreId) {
+            flushInlines();
+            activeDomPreId = domPreId;
+            activeCodeBlock = {
+              type: 'codeblock',
+              code: '',
+              language: state.domIndex?.getPreLanguage(domPreId),
+            };
+          }
+          activeCodeBlock!.code += this.extractAllText(child);
+          continue;
+        }
+      }
 
       if (childAttrs?.contentData.case === 'textData') {
         const text = childAttrs.contentData.value.textContent || '';
@@ -331,6 +417,7 @@ export const AnnotationParser = {
           item.type === 'list' ||
           item.type === 'table' ||
           item.type === 'callout' ||
+          item.type === 'blockquote' ||
           item.type === 'image'
         ) {
           flushInlines();
@@ -358,6 +445,20 @@ export const AnnotationParser = {
         if (text.includes(PRE_OPEN_MARKER) || text.includes(PRE_CLOSE_MARKER)) {
           return true;
         }
+      }
+    }
+    return false;
+  },
+
+  needsBlockGrouping(node: ContentNode, state: ParserState): boolean {
+    if (this.hasCodeFenceChild(node)) return true;
+    if (!state.domIndex || !node.childrenNodes) return false;
+    for (const child of node.childrenNodes) {
+      if (
+        this.getDomPreId(child, state.domIndex) !== undefined ||
+        this.getUnenteredBlockquoteId(child, state) !== undefined
+      ) {
+        return true;
       }
     }
     return false;
@@ -415,11 +516,12 @@ export const AnnotationParser = {
       return [headingBlock];
     }
 
+    const isDomInlineCode = !!state.domIndex?.isInlineCode(node.contentAttributes?.commonAncestorDomNodeId);
     const run: ASTTextRun = {
       type: 'text',
       text: trimmed,
       style: textData.textStyle ? {...textData.textStyle, hasEmphasis: bold} : undefined,
-      isCode: state.insideInlineCode,
+      isCode: state.insideInlineCode || isDomInlineCode,
     };
     return [run];
   },
@@ -622,7 +724,7 @@ export const AnnotationParser = {
 
   parseDefaultNode(node: ContentNode, state: ParserState): (ASTBlockNode | ASTInlineNode)[] {
     if (node.childrenNodes) {
-      if (this.hasCodeFenceChild(node)) {
+      if (this.needsBlockGrouping(node, state)) {
         return this.parseChildren(node.childrenNodes, state);
       }
       return this.parseChildrenFlat(node.childrenNodes, state);
@@ -676,7 +778,7 @@ export const AnnotationParser = {
     // 2. Dispatch by structural attribute type
     switch (attrs.attributeType) {
       case CONTENT_ATTRIBUTE_PARAGRAPH:
-        if (this.hasCodeFenceChild(node)) {
+        if (this.needsBlockGrouping(node, state)) {
           return this.parseChildren(node.childrenNodes || [], state);
         }
         return this.parseParagraphNode(node, state);
@@ -694,7 +796,7 @@ export const AnnotationParser = {
     return this.parseDefaultNode(node, state);
   },
 
-  parseProtoToAST(decodedProto: AnnotatedPageContent): ASTDocument {
+  parseProtoToAST(decodedProto: AnnotatedPageContent, options?: ConvertToMarkdownOptions): ASTDocument {
     const root = decodedProto.rootNode;
     if (!root) return {children: []};
 
@@ -708,6 +810,8 @@ export const AnnotationParser = {
       insideCodeBlock: false,
       insideInlineCode: false,
       currentUrl: decodedProto.mainFrameData?.url,
+      domIndex: options?.domSnapshot ? buildDomSnapshotIndex(options.domSnapshot) : undefined,
+      activeBlockquoteIds: new Set<number>(),
     };
 
     const children = this.parseChildren([contentRoot], state);
@@ -858,7 +962,10 @@ export const MarkdownSerializer = {
 
     if (node.type === 'codeblock') {
       const code = node.code.replace(/^\n+/, '').replace(/\n+$/, '');
-      return `\`\`\`\n${code}\n\`\`\``;
+      const longestBacktickRun = Math.max(0, ...(code.match(/`+/g) || []).map(run => run.length));
+      const fence = '`'.repeat(Math.max(3, longestBacktickRun + 1));
+      const lang = node.language || '';
+      return `${fence}${lang}\n${code}\n${fence}`;
     }
 
     if (node.type === 'list') {
@@ -935,6 +1042,19 @@ export const MarkdownSerializer = {
       return this.serializeImage(node);
     }
 
+    if (node.type === 'blockquote') {
+      const childrenMd = node.children
+        .map(c => this.serializeBlock(c))
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
+      if (!childrenMd) return '';
+      return childrenMd
+        .split('\n')
+        .map(line => (line ? `> ${line}` : '>'))
+        .join('\n');
+    }
+
     if (node.type === 'callout') {
       const childrenMd = node.children
         .map(c => this.serializeBlock(c))
@@ -978,11 +1098,11 @@ export function decodeAnnotatedPageContent(base64String: string): AnnotatedPageC
   return AnnotationParser.decodeAnnotatedPageContent(base64String);
 }
 
-export function parseProtoToAST(decodedProto: AnnotatedPageContent): ASTDocument {
-  return AnnotationParser.parseProtoToAST(decodedProto);
+export function parseProtoToAST(decodedProto: AnnotatedPageContent, options?: ConvertToMarkdownOptions): ASTDocument {
+  return AnnotationParser.parseProtoToAST(decodedProto, options);
 }
 
-export function convertToMarkdown(decodedProto: AnnotatedPageContent): string {
-  const ast = AnnotationParser.parseProtoToAST(decodedProto);
+export function convertToMarkdown(decodedProto: AnnotatedPageContent, options?: ConvertToMarkdownOptions): string {
+  const ast = AnnotationParser.parseProtoToAST(decodedProto, options);
   return MarkdownSerializer.serializeASTToMarkdown(ast);
 }

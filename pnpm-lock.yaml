@@ -7,14 +7,10 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       '@bufbuild/protobuf':
         specifier: 2.17.0
         version: 2.17.0
-      playwright:
-        specifier: 1.65.1
-        version: 1.65.1
-    devDependencies:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -33,6 +29,10 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+    optionalDependencies:
+      playwright:
+        specifier: 1.65.1
+        version: 1.65.1
 
 packages:
 
@@ -699,11 +699,13 @@ snapshots:
 
   picomatch@4.0.7: {}
 
-  playwright-core@1.65.1: {}
+  playwright-core@1.65.1:
+    optional: true
 
   playwright@1.65.1:
     dependencies:
       playwright-core: 1.65.1
+    optional: true
 
   quansync@1.0.0: {}
 

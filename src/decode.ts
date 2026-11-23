@@ -1,0 +1,32 @@
+export {
+  decodeAnnotatedPageContent,
+  convertToMarkdown,
+  parseProtoToAST,
+  AnnotationParser,
+  MarkdownSerializer,
+} from './decode_annotations.ts';
+
+export type {
+  ConvertToMarkdownOptions,
+  DOMSnapshot,
+  DOMSnapshotDocument,
+  DOMSnapshotNodeTree,
+  ASTDocument,
+  ASTBlockNode,
+  ASTInlineNode,
+  ASTParagraph,
+  ASTHeading,
+  ASTCodeBlock,
+  ASTList,
+  ASTListItem,
+  ASTTable,
+  ASTTableRow,
+  ASTTableCell,
+  ASTCallout,
+  ASTBlockquote,
+  ASTTextRun,
+  ASTLink,
+  ASTImage,
+  ASTEmbed,
+  ASTMath,
+} from './decode_annotations.ts';

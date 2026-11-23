@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import {chromium} from 'playwright';
-import {decodeAnnotatedPageContent, convertToMarkdown} from './decode_annotations.ts';
+import {decodeAnnotatedPageContent, convertToMarkdown, parseProtoToAST} from './decode.ts';
 import {INLINE_CODE_CLOSE_MARKER, INLINE_CODE_OPEN_MARKER, PRE_CLOSE_MARKER, PRE_OPEN_MARKER} from './semantic_markers.ts';
 
-export {decodeAnnotatedPageContent, convertToMarkdown};
+export {decodeAnnotatedPageContent, convertToMarkdown, parseProtoToAST};
+export type {ConvertToMarkdownOptions, DOMSnapshot, DOMSnapshotDocument, DOMSnapshotNodeTree} from './decode.ts';
 
 // AnnotatedPageContent has no semantic represnetation of these things. 
 // But they are important enough that we gotta do this.
@@ -51,6 +51,7 @@ export async function injectSemanticMarkers(page: any) {
 }
 
 export async function fetchDistilledBase64(url: string) {
+  const {chromium} = await import('playwright');
   let browser;
   try {
     browser = await chromium.launch({channel: 'chromium'});
