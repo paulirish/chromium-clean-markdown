@@ -28,7 +28,7 @@ Scan the diff for the following:
 
 ### A. Breaking Changes
 * **What to look for:** Renamed fields, deleted fields (often marked as `reserved`), or changed types.
-* **Action:** Search the codebase (`src/decode_annotations.ts` and `src/index.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
+* **Action:** Search the codebase (`src/decode.ts` and `src/index.ts`) to see if we access those modified/deleted fields. If we do, update our parsing logic to preserve compatibility.
 
 ### B. Opportunities for Higher-Fidelity Markdown
 * **What to look for:**
@@ -54,7 +54,7 @@ pnpm run preflight
 ## Step 4: Implement Improvements (If applicable)
 
 If you identify opportunities in Step 2:
-1. Update `src/decode_annotations.ts` to use the new proto fields/enums.
+1. Update `src/decode.ts` to use the new proto fields/enums.
 2. Add new test cases or mock fixtures in `test/` to cover the new features.
 3. Verify `pnpm run preflight` passes.
 

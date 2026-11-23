@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import {chromium} from 'playwright';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/decode_annotations.ts';
+import {decodeAnnotatedPageContent, convertToMarkdown} from '../src/decode.ts';
 import {injectSemanticMarkers} from '../src/index.ts';
 import TurndownService from 'turndown';
 // @ts-expect-error - no types for turndown-plugin-gfm
